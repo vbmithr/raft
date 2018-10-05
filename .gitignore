@@ -1,6 +1,3 @@
-*.cm*
-*.tsk
-*.a
-*.o
-
-*.sw*
+_build
+*.install
+**/*.merlin

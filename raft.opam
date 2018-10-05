@@ -1,0 +1,32 @@
+opam-version: "2.0"
+name: "raft"
+version: "0.1.0"
+maintainer: "Maxime Ransan <maxime.ransan@gmail.com>"
+authors:[
+  "Maxime Ransan <maxime.ransan@gmail.com>"
+]
+homepage: "https://github.com/mransan/raft"
+bug-reports:"https://github.com/mransan/raft/issues"
+dev-repo:"git+https://github.com/mransan/raft.git"
+license: "MIT"
+build: [ "dune" "build" "-j" jobs "-p" name "@install" ]
+depends: [
+  "dune" {build & >= "1.3.0"}
+]
+synopsis: "Implementation of the Raft protocol in OCaml"
+description: """
+Raft is a consensus algorithm for managing a replicated
+log. It produces a result equivalent to (multi-)Paxos, and
+it is as efficient as Paxos, but its structure is different
+from Paxos; this makes Raft more understandable than
+Paxos and also provides a better foundation for build-
+ing practical systems. In order to enhance understandabil-
+ity, Raft separates the key elements of consensus, such as
+leader election, log replication, and safety, and it enforc
+es
+a stronger degree of coherency to reduce the number of
+states that must be considered. Results from a user study
+demonstrate that Raft is easier for students to learn than
+Paxos. Raft also includes a new mechanism for changing
+the cluster membership, which uses overlapping majori-
+ties to guarantee safety."""

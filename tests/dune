@@ -1,0 +1,8 @@
+(executable
+ (name        test)
+ (public_name test)
+ (libraries  raft))
+
+(alias
+ (name runtest)
+ (action (run %{exe:test.exe})))

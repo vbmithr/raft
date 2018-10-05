@@ -1,5 +1,4 @@
-[@@@ocaml.warning "-45"]
-
+open Raft
 open Raft_types
 open Raft_log
 
@@ -2282,7 +2281,6 @@ let enforce_log_size ({server0; server1; _} as servers) now =
   (servers, now)
 
 let ()  =
-
   let servers = init () in 
   let servers, now = election_1 servers now in 
   let servers, now = failed_election_1 servers now in 

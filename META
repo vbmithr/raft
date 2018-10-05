@@ -1,5 +1,0 @@
-version = "0.1.0"
-description = "Raft Protocol Logical Library"
-archive(byte) = "raft.cma"
-archive(native) = "raft.cmxa"
-exists_if = "raft.cma"

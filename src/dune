@@ -1,0 +1,4 @@
+(library
+ (name        raft)
+ (public_name raft)
+ (synopsis "Implementation of the Raft protocol in OCaml"))
