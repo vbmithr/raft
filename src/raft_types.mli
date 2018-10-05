@@ -1,11 +1,11 @@
-(** Protocol Types: State, Message and Events *) 
+(** Protocol Types: State, Message and Events *)
 
 (** {2 Common types } *)
 
 type time = float
 (** Monotonic time (Absolute value) *)
 
-type duration = float 
+type duration = float
 (** Duration, must be in the same unit as time*)
 
 type server_id = int
@@ -28,11 +28,11 @@ type configuration = {
         must be much less than [election_timeout] *)
   max_nb_logs_per_message : Raft_log.size;
     (** Limit the number of log entries per append entries message  *)
-  max_log_size : Raft_log.max_log_size; 
+  max_log_size : Raft_log.max_log_size;
     (** define boundaries for the "in-memory log" size limitation *)
 }
 
-(** {2 Protocol Messages} *) 
+(** {2 Protocol Messages} *)
 
 type request_vote_request = {
   candidate_term : int;
@@ -57,7 +57,7 @@ type append_entries_request = {
 }
 
 type append_entries_response_result =
-  | Success of int (** receiver last log index *) 
+  | Success of int (** receiver last log index *)
   | Log_failure of int (** receiver last log index *)
   | Term_failure
 
@@ -130,33 +130,33 @@ type state = {
   server_id : server_id;
     (** Unique Identifier must be between [0] and [nb_of_server - 1]. *)
   current_term : int;
-    (** RAFT protocol divide time into terms during which a single 
+    (** RAFT protocol divide time into terms during which a single
         leader can be established. *)
   log : Raft_log.t;
     (** Set of log entries *)
   commit_index : int;
-    (** The index of the last log entry to be committed. A committed log 
+    (** The index of the last log entry to be committed. A committed log
         is guaranteed by the RAFT protocol to never be removed. *)
   role : role;
     (** Role of the server. *)
   configuration : configuration;
-    (** Various parameter to configure the RAFT cluster *) 
+    (** Various parameter to configure the RAFT cluster *)
 }
 
 (** {2 API types} *)
 
-(** The RAFT protocol defines 2 type of Timeout event which should be 
+(** The RAFT protocol defines 2 type of Timeout event which should be
     triggered if no other protocol event has happened. *)
 type timeout_type =
   | New_leader_election
-    (** Timeout until when the server should start a new election (ie 
+    (** Timeout until when the server should start a new election (ie
         increase term by 1 and become a candidate. *)
   | Heartbeat
-    (** Timeout until when the server which is in a Leader state should 
+    (** Timeout until when the server which is in a Leader state should
         send a heartbeat message to a follower. Heartbeats are used to maintain
         leadership and indicate the Leader is still operating as normal *)
 
-(** Timeout event which defines when (is absolute time) the next timeout 
+(** Timeout event which defines when (is absolute time) the next timeout
     event should be triggered as well as its type *)
 type timeout_event = {
   timeout : time;
@@ -164,25 +164,25 @@ type timeout_event = {
 }
 
 (** Notification of a change of leadership in the RAFT protocol *)
-type leader_change = 
+type leader_change =
   | New_leader of server_id
-    (** A new leader has been elected *) 
+    (** A new leader has been elected *)
   | No_leader
-    (** The previous leader is no longer considered a leader. The previous 
+    (** The previous leader is no longer considered a leader. The previous
         leader could have been any server including this server. *)
 
 (** Data returned by each of the protocol event *)
 type result = {
-  state : state;  
+  state : state;
     (** The new state *)
-  messages_to_send : message_to_send list; 
+  messages_to_send : message_to_send list;
     (** Raft messages to be send to the given servers.*)
   leader_change : leader_change option;
     (** Notification of a change in leaderhsip.*)
   committed_logs : Raft_log.log_entry list;
     (** Log entries which are now commited.*)
-  added_logs : Raft_log.log_entry list; 
-    (** Log entries added to the log. Note that this could overlap 
+  added_logs : Raft_log.log_entry list;
+    (** Log entries added to the log. Note that this could overlap
         with [committed_logs].*)
   deleted_logs : Raft_log.log_entry list;
     (** Log entries deleted from the log.*)

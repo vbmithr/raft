@@ -7,42 +7,42 @@ type log_entry = {
 
 let pp_log_entry fmt {index; term; id; _} =
   Format.fprintf fmt "{index: %i; term: %i, id: %s}"
-   index term id 
+   index term id
 
-module IntMap = Map.Make(struct 
-  type t = int 
+module IntMap = Map.Make(struct
+  type t = int
   let compare (x:int) (y:int) = Pervasives.compare x y
-end) 
+end)
 
-type size = 
-  | Number of int  
-  | Bytes of int * int 
+type size =
+  | Number of int
+  | Bytes of int * int
 
-let add size sum log_entry = 
+let add size sum log_entry =
   match size with
   | Number _ -> (sum + 1)
-  | Bytes (_, overhead) -> 
-    let {data; id; _} = log_entry in 
-    sum + overhead + 16 (* 2x64bits for index/term *) 
+  | Bytes (_, overhead) ->
+    let {data; id; _} = log_entry in
+    sum + overhead + 16 (* 2x64bits for index/term *)
         + (String.length id) + (Bytes.length data)
 
 let has_reach_max size sum =
-  match size with 
+  match size with
   | Number n -> sum >= n
   | Bytes (b,_) -> sum >= b
 
 type max_log_size = {
   upper_bound : int;
-  lower_bound : int; 
+  lower_bound : int;
 }
 
 type t = {
   recent_entries : log_entry IntMap.t;
   max_log_size : max_log_size;
-} 
+}
 
 type log_diff = {
-  added_logs : log_entry list; 
+  added_logs : log_entry list;
   deleted_logs : log_entry list;
 }
 
@@ -63,56 +63,56 @@ let last_log_index {recent_entries; _}  =
   | (_ , {index; _}) -> index
   | exception Not_found -> 0
 
-exception Done of (log_entry list * int) 
+exception Done of (log_entry list * int)
 
 let log_entries_since ~since ~max log =
   let {recent_entries ; _} = log in
   if recent_entries = IntMap.empty
   then ([], 0)
-     (* TODO questionable, shoudl all cases go to the sub function *) 
-  else 
-    let _, prev, sub = IntMap.split since recent_entries in 
-    let prev_term = 
-      match prev with 
-      | None -> assert (since = 0); 0  
-      | Some {term; _} -> term 
+     (* TODO questionable, shoudl all cases go to the sub function *)
+  else
+    let _, prev, sub = IntMap.split since recent_entries in
+    let prev_term =
+      match prev with
+      | None -> assert (since = 0); 0
+      | Some {term; _} -> term
     in
 
-    let log_entries, _ = 
-      try IntMap.fold (fun _ log_entry (log_entries, sum) -> 
+    let log_entries, _ =
+      try IntMap.fold (fun _ log_entry (log_entries, sum) ->
         let sum' = add max sum log_entry in
         if has_reach_max max sum'
         then raise (Done (log_entries, sum))
         else (log_entry :: log_entries, sum')
-      ) sub ([], 0) 
+      ) sub ([], 0)
       with | Done x -> x
-    in 
+    in
 
     (List.rev log_entries, prev_term)
-(*    let sub, _, _ = IntMap.split (since + max + 1) sub in 
+(*    let sub, _, _ = IntMap.split (since + max + 1) sub in
     (List.map snd (IntMap.bindings sub), prev_term)  *)
 
-(* Enforce that the size of the recent_entries stays within the 
- * max log size configuration *) 
-let truncate add_size ({recent_entries; max_log_size; _} as t) = 
-  let {upper_bound; lower_bound} = max_log_size in 
+(* Enforce that the size of the recent_entries stays within the
+ * max log size configuration *)
+let truncate add_size ({recent_entries; max_log_size; _} as t) =
+  let {upper_bound; lower_bound} = max_log_size in
   match IntMap.min_binding recent_entries with
   | exception Not_found -> t
     (* when empty, no need for size limitation *)
-  | (lower_index, _) -> 
-    let (upper_index, _) = IntMap.max_binding recent_entries in 
-    let size = upper_index - lower_index + 1 in 
-    if size + add_size > upper_bound 
-    then 
-      let over = size - lower_bound in 
-      let lower_index = lower_index + over + add_size - 1 in 
-      let _, _, recent_entries = IntMap.split lower_index recent_entries in 
+  | (lower_index, _) ->
+    let (upper_index, _) = IntMap.max_binding recent_entries in
+    let size = upper_index - lower_index + 1 in
+    if size + add_size > upper_bound
+    then
+      let over = size - lower_bound in
+      let lower_index = lower_index + over + add_size - 1 in
+      let _, _, recent_entries = IntMap.split lower_index recent_entries in
       {t with recent_entries}
-    else 
+    else
       t
-   
+
 let add_log_datas current_term datas log =
-  let log = truncate (List.length datas) log in 
+  let log = truncate (List.length datas) log in
 
   let rec aux term last_log_index recent_entries added_logs = function
     | [] -> (recent_entries, (List.rev added_logs))
@@ -123,12 +123,12 @@ let add_log_datas current_term datas log =
         index = last_log_index;
         term; data; id;
       } in
-      
+
       let added_logs = new_log_entry :: added_logs in
 
-      let recent_entries = 
-        IntMap.add last_log_index new_log_entry recent_entries 
-      in 
+      let recent_entries =
+        IntMap.add last_log_index new_log_entry recent_entries
+      in
 
       aux term last_log_index recent_entries added_logs tl
   in
@@ -141,78 +141,78 @@ let add_log_datas current_term datas log =
     aux term last_log_index recent_entries [] datas
   in
 
-  let log_diff = { deleted_logs = []; added_logs; } in 
+  let log_diff = { deleted_logs = []; added_logs; } in
 
   ({log with recent_entries}, log_diff)
 
 let add_log_entries ~log_entries log =
-  let log = truncate (List.length log_entries) log in 
+  let log = truncate (List.length log_entries) log in
   let rec aux recent_entries = function
     | [] ->
       {log with recent_entries}
 
     | hd::tl ->
-      let recent_entries = IntMap.add hd.index hd recent_entries in 
+      let recent_entries = IntMap.add hd.index hd recent_entries in
       aux recent_entries tl
   in
 
   let log_diff = {
-    added_logs = log_entries; 
-    deleted_logs = []; 
-  } in 
+    added_logs = log_entries;
+    deleted_logs = [];
+  } in
 
-  (aux log.recent_entries log_entries, log_diff) 
+  (aux log.recent_entries log_entries, log_diff)
 
 let remove_log_since ~prev_log_index ~prev_log_term log =
-  let {recent_entries; max_log_size = _ } = log in 
+  let {recent_entries; max_log_size = _ } = log in
   if prev_log_index > (last_log_index log)
-  then raise Not_found 
-  else 
+  then raise Not_found
+  else
 
-    let before, e, after = IntMap.split prev_log_index recent_entries in 
-    let recent_entries, deleted_logs_map = 
+    let before, e, after = IntMap.split prev_log_index recent_entries in
+    let recent_entries, deleted_logs_map =
       match e with
-      | None -> 
-        if prev_log_index = 0 
+      | None ->
+        if prev_log_index = 0
         then (before, after)
-        else raise Not_found 
-      | Some ({term; index; _} as log_entry) -> 
-        if term = prev_log_term
-        then (IntMap.add index log_entry before, after) 
         else raise Not_found
-    in 
+      | Some ({term; index; _} as log_entry) ->
+        if term = prev_log_term
+        then (IntMap.add index log_entry before, after)
+        else raise Not_found
+    in
 
     let deleted_logs = List.map snd @@ IntMap.bindings deleted_logs_map in
 
     (
-      {log with 
-        recent_entries;}, 
+      {log with
+        recent_entries;},
       {deleted_logs; added_logs = []}
-    ) 
+    )
 
-let merge_diff lhs rhs = 
+let merge_diff lhs rhs =
   match lhs, rhs with
-  | {added_logs = []; deleted_logs = []}, rhs -> rhs 
-  | lhs, {added_logs = []; deleted_logs = []} -> lhs 
+  | {added_logs = []; deleted_logs = []}, rhs -> rhs
+  | lhs, {added_logs = []; deleted_logs = []} -> lhs
 
-  | {added_logs; deleted_logs = []}, 
-    {added_logs = []; deleted_logs} 
-  | {added_logs = []; deleted_logs}, 
+  | {added_logs; deleted_logs = []},
+    {added_logs = []; deleted_logs}
+  | {added_logs = []; deleted_logs},
     {added_logs; deleted_logs = []} -> {added_logs; deleted_logs}
-  | _ -> assert(false) 
+  | _ -> assert(false)
 
 module Builder = struct
 
   type builder = t
 
-  let make max_log_size = empty max_log_size 
+  let make max_log_size = empty max_log_size
 
   let add_log_entry log log_entry =
-    let log = truncate 1 log in 
+    let log = truncate 1 log in
     (* assert(log_entry.index > (last_log_index log));
      *)
     { log with
-      recent_entries = IntMap.add log_entry.index log_entry log.recent_entries; 
+      recent_entries = IntMap.add log_entry.index log_entry log.recent_entries;
     }
 
   let to_log x = x

@@ -12,7 +12,7 @@ type configuration = {
   election_timeout_range : duration;
   hearbeat_timeout : duration;
   max_nb_logs_per_message : Raft_log.size;
-  max_log_size : Log.max_log_size; 
+  max_log_size : Log.max_log_size;
 }
 
 type request_vote_request = {
@@ -65,7 +65,7 @@ type timeout_event = {
   timeout_type : timeout_type;
 }
 
-type leader_change = 
+type leader_change =
   | New_leader of int
   | No_leader
 
@@ -105,11 +105,11 @@ type state = {
 }
 
 type result = {
-  state : state;  
-  messages_to_send : message_to_send list; 
+  state : state;
+  messages_to_send : message_to_send list;
   leader_change : leader_change option;
   committed_logs : Raft_log.log_entry list;
-  added_logs : Raft_log.log_entry list; 
+  added_logs : Raft_log.log_entry list;
   deleted_logs : Raft_log.log_entry list;
 }
 

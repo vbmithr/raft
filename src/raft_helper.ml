@@ -6,11 +6,11 @@ module Configuration = struct
   let is_majority {Types.nb_of_server; _} nb =
     nb > (nb_of_server / 2)
 
-  let election_timeout configuration = 
+  let election_timeout configuration =
     let {
       Types.election_timeout = t;
       election_timeout_range = r; _ } = configuration in
-    t +. (Random.float r -. (r /. 2.)) 
+    t +. (Random.float r -. (r /. 2.))
 
 end
 
@@ -19,19 +19,19 @@ module Follower = struct
   let make ?log ?commit_index ?current_term ~configuration ~now ~server_id () =
 
     let current_term = match current_term with
-      | None -> 0 
-      | Some current_term -> current_term 
-    in 
+      | None -> 0
+      | Some current_term -> current_term
+    in
 
     let log = match log with
-      | None -> Log.empty configuration.Types.max_log_size 
-      | Some log -> log 
-    in 
+      | None -> Log.empty configuration.Types.max_log_size
+      | Some log -> log
+    in
 
     let commit_index = match commit_index with
-      | None -> 0 
+      | None -> 0
       | Some commit_index -> commit_index
-    in 
+    in
 
     let timeout = Configuration.election_timeout configuration in
     {
@@ -48,9 +48,9 @@ module Follower = struct
     }
 
   let become ?current_leader ~now ~term state =
-    let election_deadline = 
-      now +. Configuration.election_timeout state.Types.configuration 
-    in 
+    let election_deadline =
+      now +. Configuration.election_timeout state.Types.configuration
+    in
 
     let role = match state.Types.role with
       | Types.Follower follower_state ->
@@ -83,7 +83,7 @@ end
 module Candidate = struct
 
   let become ~now state =
-    let timeout = Configuration.election_timeout state.Types.configuration in 
+    let timeout = Configuration.election_timeout state.Types.configuration in
     let role = Types.Candidate {
       Types.vote_count = 1;
       Types.election_deadline = now +. timeout;
@@ -126,7 +126,7 @@ module Leader = struct
             heartbeat_deadline = now +. hearbeat_timeout;
               (*
                * Here the expectation is that after becoming a leader
-               * the client application will send a message to all the 
+               * the client application will send a message to all the
                * receivers and therefore the heartbeat_deadline is set
                * to [now + timeout] rather than [now]. *)
           } in
@@ -141,7 +141,7 @@ module Leader = struct
   let update_follower ~follower_id ~f leader_state =
 
     List.map (fun follower ->
-      if follower.Types.follower_id = follower_id 
+      if follower.Types.follower_id = follower_id
       then (f follower)
       else follower
     ) leader_state
@@ -159,24 +159,24 @@ module Leader = struct
         (* It is possible to receive out of order responses from the other
          * raft servers.
          *
-         * In such a case we don't want to decrement the next index 
-         * of the server since the server is expected to never remove 
+         * In such a case we don't want to decrement the next index
+         * of the server since the server is expected to never remove
          * previously saved log entries.  *)
         follower
-    ) followers 
+    ) followers
     in
 
     (* Calculate the number of server which also have replicated that
        log entry *)
     let nb_of_replications = List.fold_left (fun n {Types.match_index; _ } ->
-      if match_index >= index 
+      if match_index >= index
       then n + 1
       else n
     ) 0 followers in
 
     (followers, nb_of_replications)
 
-  let decrement_next_index 
+  let decrement_next_index
                 ~follower_last_log_index ~follower_id state followers =
     let latest_log_index = Log.last_log_index state.Types.log  in
 
@@ -184,8 +184,8 @@ module Leader = struct
       (* This is an invariant. The server cannot have replicated more logs
        * than the Leader.
        *
-       * However due to message re-ordering it is possible to receive a 
-       * [LogFailure] with the receiver_last_log_index equal to 
+       * However due to message re-ordering it is possible to receive a
+       * [LogFailure] with the receiver_last_log_index equal to
        * the latest_log_index.
        *
        * Consider the following scenario
@@ -194,13 +194,13 @@ module Leader = struct
        * - !! RESPONSE IS LOST !!
        * - [Leader] Append_entry prev_index = x rev_log_entries [x+1]
        * - [Server] return a failure since it has replicated x + 1 and cannot
-       *   remove that log entry since it is coming from the current term 
-       *   leader.  *) 
+       *   remove that log entry since it is coming from the current term
+       *   leader.  *)
     update_follower ~follower_id ~f:(fun index ->
       {index with
        Types.next_index = follower_last_log_index + 1;
        Types.match_index = follower_last_log_index}
-    )  followers 
+    )  followers
 
   let record_response_received ~follower_id followers =
 
@@ -209,7 +209,7 @@ module Leader = struct
       ~f:(fun index ->
         {index with Types.outstanding_request = false;}
       )
-      followers 
+      followers
 
   let min_heartbeat_timout ~now followers =
 
@@ -249,70 +249,70 @@ module Timeout_event = struct
 
 end (* Timeout_event *)
 
-module Diff = struct 
+module Diff = struct
 
   let leader_change before after =
-    let open Types in 
-  
+    let open Types in
+
     let { role = brole; _ } = before in
     let { role = arole; _ } = after in
-  
+
     match brole, arole with
     | Follower _   , Leader _
     | Leader _     , Candidate _ ->
       (* Impossible transition which would violate the rules of the
        * RAFT protocol *)
       assert(false)
-  
+
     | Candidate _  , Leader _ ->
       (* Case of the server becoming a leader *)
       Some (New_leader after.server_id)
-  
+
     | Follower {current_leader = Some bleader; _ },
       Follower {current_leader = Some aleader; _ } when bleader = aleader ->
       None
       (* No leader change, following the same leader *)
-  
+
     | _, Follower{current_leader = Some aleader;_} ->
       Some (New_leader aleader)
       (* There is a new leader *)
-  
+
     | Follower {current_leader = Some _; _}, Candidate _
     | Follower {current_leader = Some _; _}, Follower {current_leader = None; _}
     | Leader  _  , Follower  {current_leader = None; _} ->
       Some No_leader
-  
+
     | Leader _                             , Leader _
     | Candidate _                          , Candidate _
     | Candidate _                          , Follower {current_leader = None;_}
     | Follower {current_leader = None; _}  , Follower {current_leader = None;_}
     | Follower {current_leader = None; _}  , Candidate _ ->
       None
-  
-  let committed_logs before after = 
-    let open Types in 
-  
+
+  let committed_logs before after =
+    let open Types in
+
     let { commit_index = bcommit_index;  _ } = before in
     let { commit_index = acommit_index;  _ } = after in
-  
+
     if acommit_index > bcommit_index
     then
-      let recent_entries = after.log.Log.recent_entries in 
-      let _, prev_commit, sub = Log.IntMap.split bcommit_index recent_entries in 
-      begin match prev_commit with 
+      let recent_entries = after.log.Log.recent_entries in
+      let _, prev_commit, sub = Log.IntMap.split bcommit_index recent_entries in
+      begin match prev_commit with
       | None -> assert(bcommit_index = 0)
       | Some _ -> ()
       end;
-      let sub, last_commit, _ = Log.IntMap.split acommit_index sub in 
-      let sub = match last_commit with 
-        | None -> assert(false) 
-        | Some ({Log.index; _ } as log_entry) -> 
-          Log.IntMap.add index log_entry sub 
-      in 
-      let committed_entries = List.map snd (Log.IntMap.bindings sub) in  
+      let sub, last_commit, _ = Log.IntMap.split acommit_index sub in
+      let sub = match last_commit with
+        | None -> assert(false)
+        | Some ({Log.index; _ } as log_entry) ->
+          Log.IntMap.add index log_entry sub
+      in
+      let committed_entries = List.map snd (Log.IntMap.bindings sub) in
       committed_entries
     else
-      (* Should we assert false if after < before, ie it's a violation 
+      (* Should we assert false if after < before, ie it's a violation
          of the RAFT protocol *)
       []
 

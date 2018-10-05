@@ -11,8 +11,8 @@ module Follower : sig
 
   val make :
     ?log:Raft_log.t ->
-    ?commit_index:int -> 
-    ?current_term:int -> 
+    ?commit_index:int ->
+    ?current_term:int ->
     configuration:Raft_types.configuration ->
     now:float ->
     server_id:int ->
@@ -39,12 +39,12 @@ end (* Follower *)
 
 module Candidate : sig
 
-  val become : 
-    now:float ->  
-    Raft_types.state -> 
+  val become :
+    now:float ->
+    Raft_types.state ->
     Raft_types.state
-  (** [become state now] returns the new state with Candidate role. 
-      [current_term] is incremented and [vote_count] initialized to 1. 
+  (** [become state now] returns the new state with Candidate role.
+      [current_term] is incremented and [vote_count] initialized to 1.
       (ie we assume the candidate votes for itself.
 
       The [election_timeout] is reset to a random number between the boundaries
@@ -56,16 +56,16 @@ module Candidate : sig
   (** [increment_vote_count state] increments the candidate vote count
       by 1.
 
-      This function is called upon receiving a successful response to a vote 
+      This function is called upon receiving a successful response to a vote
       request to one of the servers. *)
 
 end (* Candidate *)
 
 module Leader : sig
 
-  val become : 
-    now:float -> 
-    Raft_types.state -> 
+  val become :
+    now:float ->
+    Raft_types.state ->
     Raft_types.state
   (** [become state] returns the new state with a Leader role.
 
@@ -82,13 +82,13 @@ module Leader : sig
     index:int ->
     Raft_types.leader_state ->
     (Raft_types.leader_state * int)
-  (** [update_receiver_last_log_index leader_state receiver_id last_log_index] 
-      updates the leader state with the [last_log_index] information received 
+  (** [update_receiver_last_log_index leader_state receiver_id last_log_index]
+      updates the leader state with the [last_log_index] information received
       from a server. (Both [next_index] and [match_index] are updated.
 
-      The function returns [(state, nb_of_replication)]. The 
-      [nb_of_replication] is useful for the application to determine how many 
-      servers have replicated the log and therefore determine if it can 
+      The function returns [(state, nb_of_replication)]. The
+      [nb_of_replication] is useful for the application to determine how many
+      servers have replicated the log and therefore determine if it can
       be considered commited.  *)
 
   val record_response_received :
@@ -106,12 +106,12 @@ module Leader : sig
     Raft_types.leader_state ->
     Raft_types.leader_state
 
-  val min_heartbeat_timout : 
-    now:float -> 
-    Raft_types.leader_state -> 
+  val min_heartbeat_timout :
+    now:float ->
+    Raft_types.leader_state ->
     float
   (** [min_heartbeat_timout ~now ~leader_state] returns when the next timeout
-      event should occured based on the last request sent to the 
+      event should occured based on the last request sent to the
       followers *)
 
 end (* Leader  *)
@@ -124,19 +124,19 @@ module Timeout_event : sig
 
 end (* Timeout_event *)
 
-module Diff : sig 
-  val leader_change : 
-    Raft_types.state -> 
-    Raft_types.state -> 
+module Diff : sig
+  val leader_change :
+    Raft_types.state ->
+    Raft_types.state ->
     Raft_types.leader_change option
   (** [notifications before after] computes the notification between 2 states
    *)
 
   val committed_logs :
-    Raft_types.state -> 
-    Raft_types.state -> 
+    Raft_types.state ->
+    Raft_types.state ->
     Raft_log.log_entry list
-  (** [committed_logs before after] returns the newly committed log entries 
+  (** [committed_logs before after] returns the newly committed log entries
       between [before] and [after] state *)
 
 end (* Diff *)

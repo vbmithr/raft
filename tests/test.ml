@@ -18,8 +18,8 @@ let default_configuration = {
   hearbeat_timeout = 0.02;
   max_nb_logs_per_message = Number 10;
   max_log_size = {
-    upper_bound = 7; 
-    lower_bound = 5; 
+    upper_bound = 7;
+    lower_bound = 5;
   }
 }
 
@@ -27,10 +27,10 @@ let recent_log_length {log = {recent_entries; _ }; _ } =
   IntMap.cardinal recent_entries
 
 let recent_log_hd {log = {recent_entries; _ }; _ } =
-  snd @@  IntMap.max_binding recent_entries 
+  snd @@  IntMap.max_binding recent_entries
 
 let initial_state ~now server_id  =
-  let configuration = default_configuration in 
+  let configuration = default_configuration in
   Protocol.init ~configuration ~now ~server_id ()
 
 let now = 0.
@@ -41,9 +41,9 @@ let msg_for_server msgs id =
   | exception Not_found -> assert(false)
 
 type t = {
-  server0 : state; 
-  server1 : state; 
-  server2 : state; 
+  server0 : state;
+  server1 : state;
+  server2 : state;
 }
 
 let init () = {
@@ -52,15 +52,15 @@ let init () = {
   server2 = initial_state ~now 2;
 }
 
-(* This part of the test will simulate the successful 
- * election of server0. Server1 will grant its vote during the election, 
+(* This part of the test will simulate the successful
+ * election of server0. Server1 will grant its vote during the election,
  * while server2 is kept disconnected from server0 and does not receive
- * any message. 
+ * any message.
  *
- * At the end of this function, server0 is the leader, server1 is 
- * a follower of server0 and server2 is still a follower not aware 
+ * At the end of this function, server0 is the leader, server1 is
+ * a follower of server0 and server2 is still a follower not aware
  * than an election occured. *)
-let election_1 {server0; server1; server2} now = 
+let election_1 {server0; server1; server2} now =
 
   (* All of those severs should have an election timeout randomly
    * generated between [election_timeout +/- election_timeout_range/2]. *)
@@ -75,13 +75,13 @@ let election_1 {server0; server1; server2} now =
      * to be 0.  *)
 
   (*
-   * Server0 reach election timeout and kicks off the election 
+   * Server0 reach election timeout and kicks off the election
    * -------------------------------------------------------------------
    *)
 
   let {
     state = server0;
-    messages_to_send = msgs; 
+    messages_to_send = msgs;
     leader_change; _} = Protocol.handle_new_election_timeout server0 now in
 
   assert(is_candidate server0);
@@ -110,29 +110,29 @@ let election_1 {server0; server1; server2} now =
      * of 3, 2 messages should be sent from  by the new [Candidate].  *)
 
   (*
-   * Send Request_vote_request Server0 -> Server1 
+   * Send Request_vote_request Server0 -> Server1
    * -----------------------------------------------------------------------
    *)
 
   let now = now +. 0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
-    added_logs; 
+    committed_logs;
+    added_logs;
     deleted_logs;
   } = res in
 
   assert(1 = server1.current_term);
-    (* Server0 [Candidate] sent a higher term to server1 which is then 
-     * expected to update its own [current_term] and be a follower 
+    (* Server0 [Candidate] sent a higher term to server1 which is then
+     * expected to update its own [current_term] and be a follower
      * (which it was already).  *)
 
   assert(None = leader_change);
@@ -179,24 +179,24 @@ let election_1 {server0; server1; server2} now =
    *)
 
   let now = now +. 0.001 in
-  
-  let res = 
+
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = msgs; 
+    state = server0;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
-  
+
   assert(is_leader server0);
   assert(Some (New_leader 0) = leader_change);
-    (* Because a single vote is enough to reach a majority in a 3-server 
+    (* Because a single vote is enough to reach a majority in a 3-server
      * cluster, server0 becomes a [Leader].  *)
   assert(committed_logs = []);
   assert(added_logs = []);
@@ -215,7 +215,7 @@ let election_1 {server0; server1; server2} now =
 
         assert(follower.next_index = 1);
         assert(follower.match_index = 0);
-        assert(follower.heartbeat_deadline = 
+        assert(follower.heartbeat_deadline =
                now +. default_configuration.hearbeat_timeout);
         assert(follower.outstanding_request = true);
 
@@ -249,16 +249,16 @@ let election_1 {server0; server1; server2} now =
    *)
 
   let now = now +. 0.001 in
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -297,7 +297,7 @@ let election_1 {server0; server1; server2} now =
   | (Append_entries_response r, 0) -> (
     assert(r.receiver_id = 1);
     assert(r.receiver_term = 1);
-    assert(r.result = Success 0); 
+    assert(r.result = Success 0);
   )
   | _ -> assert(false)
   end;
@@ -305,27 +305,27 @@ let election_1 {server0; server1; server2} now =
   ({server0; server1; server2}, now)
 
 
-(* In this part of the test server2 which was previously disconnected 
+(* In this part of the test server2 which was previously disconnected
  * during the election_1 is now starting its own election for the same
  * term 1. Both server1 and server0 denies their vote since they have both
- * already granted their vote in this term. 
+ * already granted their vote in this term.
  *
  * At the end of the election server2 is still a candidate while server0
- * maintains its leader role and server1 is its follower.  *) 
-let failed_election_1 {server0; server1; server2} now = 
-  
+ * maintains its leader role and server1 is its follower.  *)
+let failed_election_1 {server0; server1; server2} now =
+
   (*
-   * Since server2 has not received any message from a leader, 
+   * Since server2 has not received any message from a leader,
    * it will start a new election.
    * ----------------------------------------------------------------------
    *)
 
   let {
-    state = server2; 
-    messages_to_send = request_vote_msgs; 
-    leader_change; 
+    state = server2;
+    messages_to_send = request_vote_msgs;
+    leader_change;
     committed_logs;
-    added_logs; 
+    added_logs;
     deleted_logs; } = Protocol.handle_new_election_timeout server2 now
   in
 
@@ -353,21 +353,21 @@ let failed_election_1 {server0; server1; server2} now =
   ) request_vote_msgs;
 
   (*
-   * Send Request_vote_request Server2 -> Server1 
+   * Send Request_vote_request Server2 -> Server1
    * ---------------------------------------------------------------------
    *)
 
   let now = now +. 0.001 in
-  let res = 
+  let res =
     let msg = msg_for_server request_vote_msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -398,7 +398,7 @@ let failed_election_1 {server0; server1; server2} now =
   | _ -> assert(false)
   end;
 
-  (* Send Request_vote_response Server1 -> Server2 
+  (* Send Request_vote_response Server1 -> Server2
    *
    * (vote not granted)
    * ---------------------------------------------------------------------
@@ -406,16 +406,16 @@ let failed_election_1 {server0; server1; server2} now =
 
   let now = now +. 0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -443,7 +443,7 @@ let failed_election_1 {server0; server1; server2} now =
      *)
 
   assert([] = msgs);
-    (* server2 is still a candidate but for the time being it has no 
+    (* server2 is still a candidate but for the time being it has no
      * message to send to any servers.  *)
 
   (*
@@ -451,16 +451,16 @@ let failed_election_1 {server0; server1; server2} now =
    * -----------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server request_vote_msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = msgs; 
+    state = server0;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -497,16 +497,16 @@ let failed_election_1 {server0; server1; server2} now =
    * -----------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -527,15 +527,15 @@ let failed_election_1 {server0; server1; server2} now =
   ({server0; server1; server2}, now)
 
 (* In this part of the test server0 the leader is sending heartbeat
- * messages (ie empty Append_entries_request) to all the followers. 
+ * messages (ie empty Append_entries_request) to all the followers.
  *
- * Server2 is no longer disconnected and will receive the msg; the msg 
+ * Server2 is no longer disconnected and will receive the msg; the msg
  * will establish server0 leadership to server2 which will update its role
- * to be a follower of server0. 
+ * to be a follower of server0.
  *
  * At the end server0 is the leader and both server1 and server2 are followers
  * of server0.*)
-let leader_heartbeat_1 {server0; server1; server2} now = 
+let leader_heartbeat_1 {server0; server1; server2} now =
 
   (* Since the heartbeat timeout is usually much shorter
    * than a new election timeout, it's likely that server0
@@ -550,7 +550,7 @@ let leader_heartbeat_1 {server0; server1; server2} now =
    *)
 
   let {state = server0; messages_to_send = msgs; _ } =
-    Protocol.handle_heartbeat_timeout server0 now 
+    Protocol.handle_heartbeat_timeout server0 now
   in
 
   assert([] = msgs);
@@ -561,7 +561,7 @@ let leader_heartbeat_1 {server0; server1; server2} now =
   let now = now +. default_configuration.hearbeat_timeout in
 
   let {state = server0; messages_to_send = hb_msgs; _ } =
-      Protocol.handle_heartbeat_timeout server0 now 
+      Protocol.handle_heartbeat_timeout server0 now
   in
 
   assert(2 = List.length hb_msgs);
@@ -582,23 +582,23 @@ let leader_heartbeat_1 {server0; server1; server2} now =
   ) hb_msgs;
 
   (*
-   * Send Append_entries_request Server0 -> Server1 
+   * Send Append_entries_request Server0 -> Server1
    *
    * (server2 becomes a follower)
    * --------------------------------------------------------------------
    *)
 
   let now = now +. 0.001 in
-  let res = 
+  let res =
     let msg = msg_for_server hb_msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -622,7 +622,7 @@ let leader_heartbeat_1 {server0; server1; server2} now =
     assert(fs.current_leader = Some 0);
       (* server2 is now aware that server0 is the [Leader] for
        * term 1 *)
-    assert(fs.election_deadline = 
+    assert(fs.election_deadline =
               now +. default_configuration.election_timeout);
   )
   | _ -> assert(false);
@@ -646,16 +646,16 @@ let leader_heartbeat_1 {server0; server1; server2} now =
    *-----------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = msgs; 
+    state = server0;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -670,16 +670,16 @@ let leader_heartbeat_1 {server0; server1; server2} now =
    * -----------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server hb_msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -703,7 +703,7 @@ let leader_heartbeat_1 {server0; server1; server2} now =
   | (Append_entries_response r, 0)::[] -> (
     assert(r.receiver_id = 1);
     assert(r.receiver_term = 1);
-    assert(r.result = Success 0); 
+    assert(r.result = Success 0);
   )
   | _ -> assert(false)
   end;
@@ -711,7 +711,7 @@ let leader_heartbeat_1 {server0; server1; server2} now =
   let now = now +. 0.001 in
 
   (*
-   * Send Append_entries_response Server1 -> Server0 
+   * Send Append_entries_response Server1 -> Server0
    *
    * --------------------------------------------------------------------------
    *)
@@ -726,16 +726,16 @@ let leader_heartbeat_1 {server0; server1; server2} now =
    * has been reached, a new [Append_entries] request will be sent no matter
    * what.  *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = msgs; 
+    state = server0;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -749,19 +749,19 @@ let leader_heartbeat_1 {server0; server1; server2} now =
 
   ({server0; server1; server2}, now)
 
-(* In this part of the a new log is added to server0 the leader. This log 
+(* In this part of the a new log is added to server0 the leader. This log
  * triggers 2 Append_entries_request to server1 and server2. Only server1
- * successfully receives the msg, replicates the log and send back the 
- * response to server0. server2 will not receive the msg. 
+ * successfully receives the msg, replicates the log and send back the
+ * response to server0. server2 will not receive the msg.
  *
  * At the end server0 is the leader with a single log entry in its log; its
  * commit index is 1 since it was successfully replicated on server1. Server1
- * is still a follower with a single log entry in its log and a commit index 
- * of 0 since it is not yet aware that this first log entry was commited. 
- * Server2 is still a follower with an empty log since it never received 
+ * is still a follower with a single log entry in its log and a commit index
+ * of 0 since it is not yet aware that this first log entry was commited.
+ * Server2 is still a follower with an empty log since it never received
  * the log entry #1. *)
-let add_first_log {server0; server1; server2} now = 
-  
+let add_first_log {server0; server1; server2} now =
+
   (* Let's now add a log entry to the [Leader] which is expected to trigger
    * the corresponding [Append_entries] requests to the other servers.  *)
   let new_log_result =
@@ -772,18 +772,18 @@ let add_first_log {server0; server1; server2} now =
   let server0, data1_msgs =
     let open Protocol in
     match new_log_result with
-    | Appended result -> 
+    | Appended result ->
         let {
-          state; 
-          messages_to_send; 
-          committed_logs; 
-          added_logs;deleted_logs;_} = result in 
-        assert([] = committed_logs); 
+          state;
+          messages_to_send;
+          committed_logs;
+          added_logs;deleted_logs;_} = result in
+        assert([] = committed_logs);
         assert(deleted_logs = []);
         begin match added_logs with
-        | [{id="01"; index = 1; term = 1; _}] -> () 
+        | [{id="01"; index = 1; term = 1; _}] -> ()
         | _ -> assert(false)
-        end; 
+        end;
         (state, messages_to_send)
       (* server0 is the [Leader] and is therefore expected to
        * handle the new log entry.  *)
@@ -794,7 +794,7 @@ let add_first_log {server0; server1; server2} now =
   assert(1 = recent_log_length server0);
     (* The new log entry should have been appended to the current empty log.*)
 
-  begin match recent_log_hd server0 with 
+  begin match recent_log_hd server0 with
   | {index = 1; term = 1; _ } -> ()
     (* Log should start as 1 and be set to the current
      * term (ie 1.) *)
@@ -831,20 +831,20 @@ let add_first_log {server0; server1; server2} now =
   let now = now +. 0.001 in
 
   (*
-   * Send Append_entries_request Server0 -> Server1 
+   * Send Append_entries_request Server0 -> Server1
    * ----------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server data1_msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -854,7 +854,7 @@ let add_first_log {server0; server1; server2} now =
      * re-inforce that server0 is the [Leader].  *)
 
   begin match added_logs with
-  | [{id = "01"; index = 1; term = 1; _}] -> () 
+  | [{id = "01"; index = 1; term = 1; _}] -> ()
   | _ -> assert(false)
   end;
   assert(1 = recent_log_length server1);
@@ -885,20 +885,20 @@ let add_first_log {server0; server1; server2} now =
   end;
 
   (*
-   * Send Append_entries_response Server1 -> Server0 
+   * Send Append_entries_response Server1 -> Server0
    * --------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = _; 
+    state = server0;
+    messages_to_send = _;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -921,14 +921,14 @@ let add_first_log {server0; server1; server2} now =
   ({server0; server1; server2}, now)
 
 (* In this part of the test a second log entry is added to server0 the leader.
- * This log entry is successfully replicated on server1 only. Server2 is 
- * not receiving the Append_entries_request message. Server1 commit index 
- * is now [1] since the leader commit index of 1 was sent in the request. 
+ * This log entry is successfully replicated on server1 only. Server2 is
+ * not receiving the Append_entries_request message. Server1 commit index
+ * is now [1] since the leader commit index of 1 was sent in the request.
  *
- * At the end server0 is the leader with 2 log entries and a commit index 
- * of 2, server1 is a follower with 2 log entries and a commit index of 1, 
+ * At the end server0 is the leader with 2 log entries and a commit index
+ * of 2, server1 is a follower with 2 log entries and a commit index of 1,
  * server2 is a follower with an empty log. *)
-let add_second_log {server0; server1; server2} now = 
+let add_second_log {server0; server1; server2} now =
   let now = now +. 0.001 in
 
   let new_log_result =
@@ -940,13 +940,13 @@ let add_second_log {server0; server1; server2} now =
     let open Protocol in
     match new_log_result with
     | Delay | Forward_to_leader _ -> assert(false)
-    | Appended {state; messages_to_send; added_logs; _ } -> begin 
+    | Appended {state; messages_to_send; added_logs; _ } -> begin
       begin match added_logs with
       | [{id = "02"; index = 2; term = 1; _}] -> ()
       | _ -> assert(false)
       end;
       (state, messages_to_send)
-    end 
+    end
   in
 
   assert(is_leader server0);
@@ -997,16 +997,16 @@ let add_second_log {server0; server1; server2} now =
    * -------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server data2_msg 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1028,8 +1028,8 @@ let add_second_log {server0; server1; server2} now =
      * of the [Leader] (1 in this case) and therefore server1 has
      * updated its own.  *)
   begin match added_logs with
-  | {id = "02"; index = 2; term = 1; _}::[] -> () 
-  | _ -> assert(false) 
+  | {id = "02"; index = 2; term = 1; _}::[] -> ()
+  | _ -> assert(false)
   end;
     (* The new log number 2 is now added in this follower .. but not commited
      * as verified previously. *)
@@ -1043,7 +1043,7 @@ let add_second_log {server0; server1; server2} now =
   | (Append_entries_response r, 0) -> (
     assert(r.receiver_id = 1);
     assert(r.receiver_term = 1);
-    assert(r.result = Success 2); 
+    assert(r.result = Success 2);
      (* server1 notifies the [Leader] about the last log it has
       * replicated.
       *)
@@ -1052,22 +1052,22 @@ let add_second_log {server0; server1; server2} now =
   end;
 
   (*
-   * Send Append_entries_response Server1 -> Server0 
+   * Send Append_entries_response Server1 -> Server0
    * ----------------------------------------------------------------------
    *)
 
   let now = now +. 0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = _; 
+    state = server0;
+    messages_to_send = _;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1075,7 +1075,7 @@ let add_second_log {server0; server1; server2} now =
   assert(is_leader server0);
 
   assert(None = leader_change);
-  
+
   assert(2 = server0.commit_index);
   begin match committed_logs with
   | {id = "02"; _ }::[] -> ()
@@ -1084,26 +1084,26 @@ let add_second_log {server0; server1; server2} now =
     (* A successfull replication is enough for a majority.  *)
   assert(added_logs = []);
   assert(deleted_logs = []);
-  ({server0; server1; server2}, now) 
+  ({server0; server1; server2}, now)
 
-(* In this part of the test, the leader reaches its heartbeat timeout 
+(* In this part of the test, the leader reaches its heartbeat timeout
  * and send an Append_entries_request to each of its follower. Since
- * server1 has replicated all the logs, its message contains no log 
- * entries but its commit_index will be set to 2. Server2 msg will 
- * contains the last 2 log entries since it has not replicated them. 
+ * server1 has replicated all the logs, its message contains no log
+ * entries but its commit_index will be set to 2. Server2 msg will
+ * contains the last 2 log entries since it has not replicated them.
  *
  * This time server2 receives the messages, replicates the 2 log and update
- * its commit index to [2]. 
+ * its commit index to [2].
  *
- * At the end of the test, server0 is the leader with 2 log index and a 
- * commit index of [2]. server1 and server2 are followers with 2 log index 
+ * At the end of the test, server0 is the leader with 2 log index and a
+ * commit index of [2]. server1 and server2 are followers with 2 log index
  * and commit index of [2]. *)
-let leader_heartbeat_2 {server0; server1; server2} now = 
-  
+let leader_heartbeat_2 {server0; server1; server2} now =
+
   let now = now +. default_configuration.hearbeat_timeout in
 
   let {state = server0; messages_to_send = msgs; added_logs; _ } =
-    Protocol.handle_heartbeat_timeout server0 now 
+    Protocol.handle_heartbeat_timeout server0 now
   in
 
   assert(added_logs = []);
@@ -1134,7 +1134,7 @@ let leader_heartbeat_2 {server0; server1; server2} now =
     assert(List.length r.log_entries = 2);
     assert(r.prev_log_index = 0);
       (* this reflect the knowledge of server0 (leader) which has never
-       * received an Append_entries_response from server2 indicating 
+       * received an Append_entries_response from server2 indicating
        * that logs were replicated. *)
     assert(r.leader_commit = 2);
   )
@@ -1147,16 +1147,16 @@ let leader_heartbeat_2 {server0; server1; server2} now =
    * Send Append_entries_request Server0 -> Server1
    * ---------------------------------------------------------------------
    *)
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = server1_response; 
+    state = server1;
+    messages_to_send = server1_response;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1171,7 +1171,7 @@ let leader_heartbeat_2 {server0; server1; server2} now =
   assert(2 = server1.commit_index);
     (* server1 is updating its commit index based on latest
      * [leader_commit] value of 2 in the request it received.  *)
-  
+
   assert(added_logs = []);
     (* All logs have already been replicated in server 1. *)
 
@@ -1185,16 +1185,16 @@ let leader_heartbeat_2 {server0; server1; server2} now =
    * ---------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = server2_response; 
+    state = server2;
+    messages_to_send = server2_response;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1204,8 +1204,8 @@ let leader_heartbeat_2 {server0; server1; server2} now =
   | {id = "01"; _ }::{id = "02"; _}::[] -> ()
   | _ -> assert(false)
   end;
-  assert(added_logs = committed_logs); 
-    (* The 2 previous logs were never replicated to the server 2 before 
+  assert(added_logs = committed_logs);
+    (* The 2 previous logs were never replicated to the server 2 before
      * this heartbeat message *)
   assert(deleted_logs = []);
   assert(None = leader_change);
@@ -1235,21 +1235,21 @@ let leader_heartbeat_2 {server0; server1; server2} now =
    * ----------------------------------------------------------------------
    *)
 
-  let res = 
-    let res = 
+  let res =
+    let res =
       let msg = msg_for_server server1_response 0 in
       Protocol.handle_message server0 msg now
     in
 
     let {
-      state = server0; 
-      messages_to_send; 
+      state = server0;
+      messages_to_send;
       leader_change;
-      committed_logs; 
+      committed_logs;
       added_logs;
       deleted_logs;
     } = res in
-    
+
     assert([] = messages_to_send);
     assert(None = leader_change);
     assert([] = committed_logs);
@@ -1263,10 +1263,10 @@ let leader_heartbeat_2 {server0; server1; server2} now =
   in
 
   let {
-    state = server0; 
-    messages_to_send; 
+    state = server0;
+    messages_to_send;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1285,16 +1285,16 @@ let leader_heartbeat_2 {server0; server1; server2} now =
 
   ({server0; server1; server2}, now)
 
-(* In this part of the test, a 3rd log is added to the leader which 
- * successfully replicates it on server1 but the Append_entries_response 
- * is not sent back to server0. Therefore the log is not yet committed. 
- * Server 2 does not replicate the 3rd log however. 
+(* In this part of the test, a 3rd log is added to the leader which
+ * successfully replicates it on server1 but the Append_entries_response
+ * is not sent back to server0. Therefore the log is not yet committed.
+ * Server 2 does not replicate the 3rd log however.
  *
- * At the end server0 is the leader with 3 logs and commit_index set to [2], 
- * server1 has 3 logs with commit_index set to [2] and server2 has 2 logs 
+ * At the end server0 is the leader with 3 logs and commit_index set to [2],
+ * server1 has 3 logs with commit_index set to [2] and server2 has 2 logs
  * and commit_index set to [2]. *)
-let add_third_log {server0; server1; server2} now = 
-  
+let add_third_log {server0; server1; server2} now =
+
   (* Let's now add a 3rd [log_entry] to the [Leader].
    *
    * We'll replicate this 3rd entry on [server1] only and
@@ -1316,9 +1316,9 @@ let add_third_log {server0; server1; server2} now =
 
   let server0, msgs =
     match new_log_result with
-    | Protocol.Appended {state; messages_to_send; added_logs; _ } -> 
+    | Protocol.Appended {state; messages_to_send; added_logs; _ } ->
         begin match added_logs with
-        | {id = "03"; index = 3; term = 1; _ } :: [] -> () 
+        | {id = "03"; index = 3; term = 1; _ } :: [] -> ()
         | _ -> assert(false)
         end;
         (state, messages_to_send)
@@ -1333,20 +1333,20 @@ let add_third_log {server0; server1; server2} now =
      * 2 servers. *)
 
   (*
-   * Send Append_entries_request Server0 -> Server1 
+   * Send Append_entries_request Server0 -> Server1
    * ---------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = _; 
+    state = server1;
+    messages_to_send = _;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1361,24 +1361,24 @@ let add_third_log {server0; server1; server2} now =
     (* No change since the [commit_index] was still
      * 2 in the [Append_entries] request.  *)
   begin match added_logs with
-  | {id = "03"; index = 3; term =1 ; _ } :: [] -> () 
+  | {id = "03"; index = 3; term =1 ; _ } :: [] -> ()
   | _ -> assert(false)
   end;
-  
+
   assert(deleted_logs = []);
 
   (* The response is not send back to server0 *)
   ({server0; server1; server2}, now)
 
 (* In this part of the test, server2 starts a new election, however since
- * it has only 2 log entries and server1 has 3 log entries, server1 will 
+ * it has only 2 log entries and server1 has 3 log entries, server1 will
  * not grant its vote.
  *
  * At the end of the test server2 is a candidate for term [2] with only
- * its own vote granted. Server1 is still a follower with no leader and 
- * no vote granted in term [2]. Server0 is still a leader for term [1]. *) 
-let failed_election_2 {server0; server1; server2} now = 
-  
+ * its own vote granted. Server1 is still a follower with no leader and
+ * no vote granted in term [2]. Server0 is still a leader for term [1]. *)
+let failed_election_2 {server0; server1; server2} now =
+
   (*
    * Server2 starts a new election
    * --------------------------------------------------------------------------
@@ -1387,11 +1387,11 @@ let failed_election_2 {server0; server1; server2} now =
   let now = now +. default_configuration.election_timeout  in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
     committed_logs;
-    added_logs; 
+    added_logs;
     deleted_logs} = Protocol.handle_new_election_timeout server2 now
   in
 
@@ -1431,16 +1431,16 @@ let failed_election_2 {server0; server1; server2} now =
 
   let now = now +. 0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1474,28 +1474,28 @@ let failed_election_2 {server0; server1; server2} now =
   )
   | _  -> assert(false)
   end;
-  ({server0; server1; server2}, now) 
+  ({server0; server1; server2}, now)
 
-(* In this part of the test, server1 takes its turn to start a new election 
- * in term3. This time since it has more logs than server2, server2 grants its 
- * vote and server1 becomes a leader. 
+(* In this part of the test, server1 takes its turn to start a new election
+ * in term3. This time since it has more logs than server2, server2 grants its
+ * vote and server1 becomes a leader.
  *
  * Upon become a leader server1 send Append_entries_request to both
- * server0 and server2 assuming their previous log index matches his (ie [3]). 
+ * server0 and server2 assuming their previous log index matches his (ie [3]).
  * Server0 is disconnected and the msg is not sent to it. Server2 receives
- * the message, however it has not replicated log [3] and therefore sends 
- * back a log failure indicating its previous log index which is [2]. 
- * Server1 will then update its information about server2 and send back 
- * a corrected Append_entries_request, with this time the missing third 
+ * the message, however it has not replicated log [3] and therefore sends
+ * back a log failure indicating its previous log index which is [2].
+ * Server1 will then update its information about server2 and send back
+ * a corrected Append_entries_request, with this time the missing third
  * entry. Upon receiving the Append_entries_response server1 will mark
  * the 3rd log entry to be commited!
  *
- * At the end server0 is still in a leader role but for term 1 and it has 
- * 3 log entries with commit index of 2. Both server1 and server2 are in 
+ * At the end server0 is still in a leader role but for term 1 and it has
+ * 3 log entries with commit index of 2. Both server1 and server2 are in
  * term 3 with server1 the leader and server2 a follower. They both have 3
- * log entries, server1 commit index is 3 while server2 is 2. *) 
-let election_2 {server0; server1; server2} now = 
-  
+ * log entries, server1 commit index is 3 while server2 is 2. *)
+let election_2 {server0; server1; server2} now =
+
   (*
    * Let's now have server1 starts a new election.
    * ----------------------------------------------------------------------
@@ -1504,11 +1504,11 @@ let election_2 {server0; server1; server2} now =
   let now = now +. default_configuration.election_timeout in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
-    leader_change; 
-    committed_logs; 
-    added_logs; 
+    state = server1;
+    messages_to_send = msgs;
+    leader_change;
+    committed_logs;
+    added_logs;
     deleted_logs} = Protocol.handle_new_election_timeout server1 now
   in
 
@@ -1534,20 +1534,20 @@ let election_2 {server0; server1; server2} now =
   ) msgs;
 
   (*
-   * Send Request_vote_request server1 -> server2 
+   * Send Request_vote_request server1 -> server2
    * -----------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1584,20 +1584,20 @@ let election_2 {server0; server1; server2} now =
   let now = now +. 0.001 in
 
   (*
-   * Send Request_vote_response Server2 -> Server1 
+   * Send Request_vote_response Server2 -> Server1
    * ---------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1639,16 +1639,16 @@ let election_2 {server0; server1; server2} now =
 
   let now = now +.  0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1668,7 +1668,7 @@ let election_2 {server0; server1; server2} now =
   | (Append_entries_response r, 1)::[] -> (
     assert(r.receiver_id = 2);
     assert(r.receiver_term = 3);
-    assert(r.result = Log_failure 2);      
+    assert(r.result = Log_failure 2);
       (* server2 did not replicate the 3rd [log_entry] that server1
        * did during [term = 1].
        *
@@ -1678,22 +1678,22 @@ let election_2 {server0; server1; server2} now =
   end;
 
   (*
-   * Send Append_entries_response Server2 -> Server1 
+   * Send Append_entries_response Server2 -> Server1
    * ----------------------------------------------------------------------
    *)
 
   let now = now +. 0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1733,16 +1733,16 @@ let election_2 {server0; server1; server2} now =
 
   let now = now +. 0.001 in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1762,7 +1762,7 @@ let election_2 {server0; server1; server2} now =
      *)
   begin match added_logs with
   | {id = "03"; index = 3; term = 1; _ }::[]  -> ()
-  | _ -> assert(false); 
+  | _ -> assert(false);
   end;
 
   assert(1 = List.length msgs);
@@ -1779,22 +1779,22 @@ let election_2 {server0; server1; server2} now =
   | _ -> assert(false)
   end;
 
-  (* Send Append_entries_response Server2 -> Server1 
+  (* Send Append_entries_response Server2 -> Server1
    * ----------------------------------------------------------------------
    *)
 
   let now = now +. 0.001  in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1819,11 +1819,11 @@ let election_2 {server0; server1; server2} now =
   ({server0; server1; server2}, now)
 
 (* In this part of the test we simply add 2 logs at the same time to server1
- * the latest leader. Server1 successfully adds, replicate and commits 
- * both logs. 
- * Server2 replicates the logs but its commit index is not yet updated. 
+ * the latest leader. Server1 successfully adds, replicate and commits
+ * both logs.
+ * Server2 replicates the logs but its commit index is not yet updated.
  * Server0 is still disconnected and the leader of term [1]. *)
-let add_4_and_5_logs {server0; server1; server2} now = 
+let add_4_and_5_logs {server0; server1; server2} now =
 
   let new_log_result =
     let datas = [
@@ -1836,9 +1836,9 @@ let add_4_and_5_logs {server0; server1; server2} now =
   let server1, data45_msgs =
     let open Protocol in
     match new_log_result with
-    | Appended {state; messages_to_send; added_logs; _ } -> 
-      begin 
-        assert(2 = List.length added_logs); 
+    | Appended {state; messages_to_send; added_logs; _ } ->
+      begin
+        assert(2 = List.length added_logs);
         (state, messages_to_send)
       end
     | Delay | Forward_to_leader _ -> assert(false)
@@ -1852,7 +1852,7 @@ let add_4_and_5_logs {server0; server1; server2} now =
 
   assert(1 = List.length data45_msgs);
     (* Only one message needs to be sent since server0 has still an outstanding
-     * request. (ie server1 the leader never received any `append entries 
+     * request. (ie server1 the leader never received any `append entries
      * response` from that server *)
 
   List.iter (fun (msg, _) ->
@@ -1877,23 +1877,23 @@ let add_4_and_5_logs {server0; server1; server2} now =
     | _ -> assert(false);
   ) data45_msgs;
 
-  (* 
+  (*
    * Send Append_entries_request Server1 -> Server2
    * ------------------------------------------------------------------
    *)
 
   let now = now +. 0.001  in
 
-  let res = 
+  let res =
     let msg = msg_for_server data45_msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = msgs; 
+    state = server2;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1938,22 +1938,22 @@ let add_4_and_5_logs {server0; server1; server2} now =
   end;
 
   (*
-   * Send Append_entries_response Server2 -> Server1 
+   * Send Append_entries_response Server2 -> Server1
    * ------------------------------------------------------------------------
    *)
 
   let now = now +. 0.001  in
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 1 in
     Protocol.handle_message server1 msg now
   in
 
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
@@ -1967,17 +1967,17 @@ let add_4_and_5_logs {server0; server1; server2} now =
 
   ({server0; server1; server2}, now)
 
-(* In this part of the test we add a log to server0 which is disconnected 
- * (ie the network is partitioned) from the other servers. Because server0 
+(* In this part of the test we add a log to server0 which is disconnected
+ * (ie the network is partitioned) from the other servers. Because server0
  * is still a leader for term [1] it will add the log but will not receive
- * any response from the other server, therefore this 4th log entry will 
- * not be commited. 
+ * any response from the other server, therefore this 4th log entry will
+ * not be commited.
  *
- * At the end, server0 is still a leader for term [1], it has 4 log entries 
+ * At the end, server0 is still a leader for term [1], it has 4 log entries
  * but a commit_index of [2]. Server1 is the leader of term [3] and server2 is
  * a follower of server1. *)
 
-let add_log_to_outdated_leader {server0; server1; server2} now = 
+let add_log_to_outdated_leader {server0; server1; server2} now =
   let new_log_result =
     let data = Bytes.of_string "NeverCommitted" in
     Protocol.handle_add_log_entries server0 [(data, "NC")] now
@@ -1986,19 +1986,19 @@ let add_log_to_outdated_leader {server0; server1; server2} now =
   let server0, msgs =
     let open Protocol in
     match new_log_result with
-    | Appended result -> 
+    | Appended result ->
         let {
-          state; 
-          messages_to_send; 
-          committed_logs; 
-          added_logs;deleted_logs; _} = result in 
-        assert([] = committed_logs); 
+          state;
+          messages_to_send;
+          committed_logs;
+          added_logs;deleted_logs; _} = result in
+        assert([] = committed_logs);
         assert(deleted_logs = []);
-        assert(1 = List.length added_logs); 
+        assert(1 = List.length added_logs);
         begin match added_logs with
-        | [{id="NC"; index = 4; term = 1; _}] -> () 
+        | [{id="NC"; index = 4; term = 1; _}] -> ()
         | _ -> assert(false)
-        end; 
+        end;
         (state, messages_to_send)
       (* server0 is the [Leader] and is therefore expected to
        * handle the new log entry.  *)
@@ -2007,9 +2007,9 @@ let add_log_to_outdated_leader {server0; server1; server2} now =
   in
 
   assert(2 = List.length msgs);
-  assert(4 = recent_log_length server0); 
-  assert(2 = server0.commit_index); 
-  
+  assert(4 = recent_log_length server0);
+  assert(2 = server0.commit_index);
+
   List.iter (fun (msg, _) ->
     match msg with
     | Append_entries_request r -> (
@@ -2030,20 +2030,20 @@ let add_log_to_outdated_leader {server0; server1; server2} now =
 
   ({server0; server1; server2}, now)
 
-(* In this part of the test server1 the leader in term [3] will send 
+(* In this part of the test server1 the leader in term [3] will send
  * heartbeat messages to both server0 and server2. Server0 is no longer
- * disconnected and receives the message, the synchronization sequence 
- * between the latest leader (server1) and the previous one (server0) is 
- * deleting non commited messages in server0. 
+ * disconnected and receives the message, the synchronization sequence
+ * between the latest leader (server1) and the previous one (server0) is
+ * deleting non commited messages in server0.
  *
- * At the end server1 is the leader and has 5 log entries and a commit 
- * index of 5. Both server0 and server2 have fully replicated the 
+ * At the end server1 is the leader and has 5 log entries and a commit
+ * index of 5. Both server0 and server2 have fully replicated the
  * 5 log entries and their commit index is 5 as well*)
-let leader_heartbeat_3 {server0; server1; server2} now = 
+let leader_heartbeat_3 {server0; server1; server2} now =
   let now = now +. default_configuration.hearbeat_timeout in
-  
+
   let {state = server1; messages_to_send = msgs; added_logs; _ } =
-    Protocol.handle_heartbeat_timeout server1 now 
+    Protocol.handle_heartbeat_timeout server1 now
   in
 
   assert(added_logs = []);
@@ -2054,9 +2054,9 @@ let leader_heartbeat_3 {server0; server1; server2} now =
     assert(r.leader_term = 3);
     assert(r.leader_id = 1);
     assert(r.prev_log_term = 1);
-    assert(2 = List.length r.log_entries); 
-      (* Because no msg was received from server0, server1 knowledge of 
-       * server0 still believes its prev_log_index to be 3... the same as 
+    assert(2 = List.length r.log_entries);
+      (* Because no msg was received from server0, server1 knowledge of
+       * server0 still believes its prev_log_index to be 3... the same as
        * when it was elected a leader. Therefore for the message contains
        * the 2 latest entries. *)
     assert(r.prev_log_index = 3);
@@ -2064,13 +2064,13 @@ let leader_heartbeat_3 {server0; server1; server2} now =
   )
   | _ -> assert(false)
   end;
-  
+
   begin match msg_for_server msgs 2 with
   | Append_entries_request r -> (
     assert(r.leader_term = 3);
     assert(r.leader_id = 1);
     assert(r.prev_log_term = 3);
-    assert(0 = List.length r.log_entries); 
+    assert(0 = List.length r.log_entries);
     assert(r.prev_log_index = 5);
       (* Server2 has replicated both log_entries 4 & 5 *)
     assert(r.leader_commit = 5);
@@ -2078,35 +2078,35 @@ let leader_heartbeat_3 {server0; server1; server2} now =
   | _ -> assert(false)
   end;
 
-  (* 
-   * Send Append_entries_request Server1 -> Server0 
+  (*
+   * Send Append_entries_request Server1 -> Server0
    * ---------------------------------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
 
   let {
-    state = server0; 
-    messages_to_send = server0_response; 
+    state = server0;
+    messages_to_send = server0_response;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
 
   begin match deleted_logs with
-  | {index = 4; term = 1; id = "NC"; _} :: [] -> () 
+  | {index = 4; term = 1; id = "NC"; _} :: [] -> ()
   | _ -> assert(false)
   end;
     (* The non commited log added by server0 in term [1] is deleted since
      * it was never replicated anywher and server1 is now the leader
      * in a later term *)
 
-  assert(is_follower server0); 
-  assert(3 = server0.current_term); 
+  assert(is_follower server0);
+  assert(3 = server0.current_term);
   assert(5 = recent_log_length server0);
   begin match committed_logs with
   | {index = 3; term = 1; _}::{index = 4; term = 3; _}::
@@ -2114,117 +2114,117 @@ let leader_heartbeat_3 {server0; server1; server2} now =
   | _ -> assert(false)
   end;
   assert(5 = server0.commit_index);
-  assert(2 = List.length added_logs); 
+  assert(2 = List.length added_logs);
 
-  begin match msg_for_server server0_response 1 with 
-  | Append_entries_response r ->  
+  begin match msg_for_server server0_response 1 with
+  | Append_entries_response r ->
     assert(r.receiver_id = 0);
     assert(r.receiver_term = 3);
-    assert(r.result = Success 5); 
-  | _ -> assert(false); 
-  end; 
+    assert(r.result = Success 5);
+  | _ -> assert(false);
+  end;
   assert(Some (New_leader 1) = leader_change);
 
-  (* 
-   * Send Append_entries_request Server1 -> Server2 
+  (*
+   * Send Append_entries_request Server1 -> Server2
    * ----------------------------------------------------------------------
    *)
-  
-  let res = 
+
+  let res =
     let msg = msg_for_server msgs 2 in
     Protocol.handle_message server2 msg now
   in
 
   let {
-    state = server2; 
-    messages_to_send = server2_response; 
+    state = server2;
+    messages_to_send = server2_response;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
 
   assert(deleted_logs = []);
-  assert(is_follower server2); 
-  assert(3 = server2.current_term); 
+  assert(is_follower server2);
+  assert(3 = server2.current_term);
   assert(5 = recent_log_length server2);
   begin match committed_logs with
   | {index = 4; term = 3; _}::{index = 5; term = 3; _}::[] -> ()
   | _ -> assert(false)
   end;
   assert(5 = server2.commit_index);
-  assert(0 = List.length added_logs); 
+  assert(0 = List.length added_logs);
 
-  begin match msg_for_server server2_response 1 with 
-  | Append_entries_response r ->  
+  begin match msg_for_server server2_response 1 with
+  | Append_entries_response r ->
     assert(r.receiver_id = 2);
     assert(r.receiver_term = 3);
-    assert(r.result = Success 5); 
-  | _ -> assert(false); 
-  end; 
+    assert(r.result = Success 5);
+  | _ -> assert(false);
+  end;
   assert(None= leader_change);
 
-  let now = now +. 0.001 in 
-  
-  (* 
-   * Spend Append_entries_response Server0 -> Server1 
-   * -------------------------------------------------------------------
-   *) 
+  let now = now +. 0.001 in
 
-  let res = 
+  (*
+   * Spend Append_entries_response Server0 -> Server1
+   * -------------------------------------------------------------------
+   *)
+
+  let res =
     let msg = msg_for_server server0_response 1 in
     Protocol.handle_message server1 msg now
   in
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
   assert(deleted_logs = []);
-  assert([] = msgs); 
-  assert([] = committed_logs); 
-  assert([] = added_logs); 
+  assert([] = msgs);
+  assert([] = committed_logs);
+  assert([] = added_logs);
   assert(None = leader_change);
 
-  (* 
-   * Spend Append_entries_response Server2 -> Server1 
+  (*
+   * Spend Append_entries_response Server2 -> Server1
    * -------------------------------------------------------------------
-   *) 
-  
-  let res = 
+   *)
+
+  let res =
     let msg = msg_for_server server2_response 1 in
     Protocol.handle_message server1 msg now
   in
   let {
-    state = server1; 
-    messages_to_send = msgs; 
+    state = server1;
+    messages_to_send = msgs;
     leader_change;
-    committed_logs; 
+    committed_logs;
     added_logs;
     deleted_logs;
   } = res in
   assert(deleted_logs = []);
-  assert([] = msgs); 
-  assert([] = committed_logs); 
-  assert([] = added_logs); 
+  assert([] = msgs);
+  assert([] = committed_logs);
+  assert([] = added_logs);
   assert(None = leader_change);
 
   ({server0; server1; server2}, now)
 
 (* Prior to this test, the log size was 5, but in this test we're adding
  * 3 new entries which means the resulting size would be 8. 8 is greated
- * than the configured max log size upper boud and so the log size 
- * limitation enforcement should kick in. Log entries [1] [2] [3] should 
- * be removed from the Raft_log.recent_entries to make sure 
- * the recent entries size is set to lower bound (ie [5]). 
+ * than the configured max log size upper boud and so the log size
+ * limitation enforcement should kick in. Log entries [1] [2] [3] should
+ * be removed from the Raft_log.recent_entries to make sure
+ * the recent entries size is set to lower bound (ie [5]).
  *
  * Intentionally at the end of this test we returned the server state
- * unmodified, this test is solely checking the log size enforcement 
+ * unmodified, this test is solely checking the log size enforcement
  * and has no side effect *)
-let enforce_log_size ({server0; server1; _} as servers) now = 
+let enforce_log_size ({server0; server1; _} as servers) now =
   let new_log_result =
     let datas = [
       (Bytes.of_string "Message06", "06");
@@ -2233,39 +2233,39 @@ let enforce_log_size ({server0; server1; _} as servers) now =
     ] in
     Protocol.handle_add_log_entries server1 datas now
   in
-  
-  let min_max_index server = 
+
+  let min_max_index server =
     (
-      fst @@ IntMap.min_binding server.log.recent_entries, 
+      fst @@ IntMap.min_binding server.log.recent_entries,
       fst @@ IntMap.max_binding server.log.recent_entries
-    ) 
+    )
   in
 
-  let min_index, max_index = min_max_index server1 in  
-  assert(1 = min_index); 
-  assert(5 = max_index); 
+  let min_index, max_index = min_max_index server1 in
+  assert(1 = min_index);
+  assert(5 = max_index);
 
   let server1, msgs =
     let open Protocol in
     match new_log_result with
-    | Appended {state; messages_to_send; added_logs; _ } -> 
-      begin 
-        assert(3 = List.length added_logs); 
+    | Appended {state; messages_to_send; added_logs; _ } ->
+      begin
+        assert(3 = List.length added_logs);
         (state, messages_to_send)
       end
     | Delay | Forward_to_leader _ -> assert(false)
   in
 
-  let min_index, max_index = min_max_index server1 in  
-  assert(4 = min_index); 
-  assert(8 = max_index); 
+  let min_index, max_index = min_max_index server1 in
+  assert(4 = min_index);
+  assert(8 = max_index);
 
-  (* 
-   * Send Append_entries_request Server1 -> Server0 
-   * ---------------------------------------------- 
+  (*
+   * Send Append_entries_request Server1 -> Server0
+   * ----------------------------------------------
    *)
 
-  let res = 
+  let res =
     let msg = msg_for_server msgs 0 in
     Protocol.handle_message server0 msg now
   in
@@ -2274,27 +2274,27 @@ let enforce_log_size ({server0; server1; _} as servers) now =
     state = server0; _
   } = res in
 
-  let min_index, max_index = min_max_index server0 in 
-  assert(4 = min_index); 
-  assert(8 = max_index); 
+  let min_index, max_index = min_max_index server0 in
+  assert(4 = min_index);
+  assert(8 = max_index);
 
   (servers, now)
 
 let ()  =
-  let servers = init () in 
-  let servers, now = election_1 servers now in 
-  let servers, now = failed_election_1 servers now in 
-  let servers, now = leader_heartbeat_1 servers now in 
-  let servers, now = add_first_log servers now in 
-  let servers, now = add_second_log servers now in 
+  let servers = init () in
+  let servers, now = election_1 servers now in
+  let servers, now = failed_election_1 servers now in
+  let servers, now = leader_heartbeat_1 servers now in
+  let servers, now = add_first_log servers now in
+  let servers, now = add_second_log servers now in
   let servers, now = leader_heartbeat_2 servers now in
-  let servers, now = add_third_log servers now in 
-  let servers, now = failed_election_2 servers now in  
-  let servers, now = election_2 servers now in 
-  let servers, now = add_4_and_5_logs servers now in 
-  let servers, now = add_log_to_outdated_leader servers now in 
-  let servers, now = leader_heartbeat_3 servers now in 
-  let servers, now = enforce_log_size servers now in 
-  let _ = servers and _ = now in 
+  let servers, now = add_third_log servers now in
+  let servers, now = failed_election_2 servers now in
+  let servers, now = election_2 servers now in
+  let servers, now = add_4_and_5_logs servers now in
+  let servers, now = add_log_to_outdated_leader servers now in
+  let servers, now = leader_heartbeat_3 servers now in
+  let servers, now = enforce_log_size servers now in
+  let _ = servers and _ = now in
 
   ()
